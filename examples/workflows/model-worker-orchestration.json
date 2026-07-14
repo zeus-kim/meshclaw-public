@@ -1,0 +1,115 @@
+{
+  "name": "model-worker-orchestration",
+  "description": "Generic local-model worker orchestration workflow. It inspects candidate model nodes, assigns independent worker lanes, preserves failures as evidence, and uses fallback lanes instead of hiding model load failures.",
+  "steps": [
+    {
+      "id": "capability-snapshot",
+      "title": "Snapshot runtime capabilities",
+      "node": "controller",
+      "transport": "local",
+      "command": "meshclaw capabilities --json",
+      "action": "read_state",
+      "resource": "capability",
+      "timeout_seconds": 15,
+      "dry_run_note": "Dry-run only: would snapshot available model, vssh, browser, and provider capabilities."
+    },
+    {
+      "id": "worker-facts",
+      "title": "Collect model worker facts",
+      "node": "controller",
+      "transport": "local",
+      "command": "vssh facts-many g1,g2,g3,g4 --json",
+      "action": "read_state",
+      "resource": "server",
+      "depends_on": [
+        "capability-snapshot"
+      ],
+      "timeout_seconds": 20,
+      "retry": {
+        "max_attempts": 2,
+        "retry_on_error_substr": [
+          "timeout",
+          "auth failed"
+        ]
+      },
+      "dry_run_note": "Dry-run only: would collect typed facts for model placement."
+    },
+    {
+      "id": "placement-plan",
+      "title": "Plan model worker placement",
+      "node": "controller",
+      "transport": "local",
+      "command": "meshclaw orchestration-plan \"assign planning, reliability review, evidence schema, and automation lanes to available model workers\" --json",
+      "action": "read_state",
+      "resource": "fleet",
+      "depends_on": [
+        "worker-facts"
+      ],
+      "timeout_seconds": 20,
+      "dry_run_note": "Dry-run only: would explain why each worker lane is selected."
+    },
+    {
+      "id": "planning-worker",
+      "title": "Run planning worker prompt",
+      "node": "g1",
+      "transport": "vssh",
+      "command": "ollama list; timeout 10s ollama run qwen2.5:7b 'Return JSON: {\"role\":\"planning\",\"status\":\"ready\"}'",
+      "action": "read_state",
+      "resource": "model",
+      "depends_on": [
+        "placement-plan"
+      ],
+      "timeout_seconds": 20,
+      "retry": {
+        "max_attempts": 2,
+        "retry_on_error_substr": [
+          "model",
+          "timeout",
+          "connection refused"
+        ]
+      },
+      "dry_run_note": "Dry-run only: would run a small planning prompt on the selected worker lane."
+    },
+    {
+      "id": "planning-worker-fallback",
+      "title": "Fallback planning prompt on alternate worker",
+      "node": "g2",
+      "transport": "vssh",
+      "command": "ollama list; timeout 10s ollama run qwen2.5:7b 'Return JSON: {\"role\":\"planning_fallback\",\"status\":\"ready\"}'",
+      "action": "read_state",
+      "resource": "model",
+      "fallback_for": [
+        "planning-worker"
+      ],
+      "timeout_seconds": 20,
+      "dry_run_note": "Dry-run only: would use this alternate worker only when the primary planning worker fails."
+    },
+    {
+      "id": "evidence-worker",
+      "title": "Run evidence schema worker prompt",
+      "node": "g3",
+      "transport": "vssh",
+      "command": "ollama list; timeout 10s ollama run llama3.2 'Return JSON: {\"role\":\"evidence_schema\",\"status\":\"ready\"}'",
+      "action": "read_state",
+      "resource": "model",
+      "depends_on": [
+        "placement-plan"
+      ],
+      "timeout_seconds": 20,
+      "dry_run_note": "Dry-run only: would ask a separate worker to describe evidence fields."
+    },
+    {
+      "id": "automation-lane-gate",
+      "title": "Gate automation lane actions",
+      "transport": "policy",
+      "action": "workflow_execute",
+      "resource": "automation",
+      "approval_required": true,
+      "depends_on": [
+        "planning-worker",
+        "evidence-worker"
+      ],
+      "dry_run_note": "Running real automation, browser actions, or provider mutations requires explicit approval."
+    }
+  ]
+}

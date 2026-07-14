@@ -1,0 +1,24 @@
+name: Publish PyPI (meshclaw-go)
+on:
+  push:
+    tags: ['pypi-v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write   # OIDC for PyPI Trusted Publishing
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install build
+      - name: Build sdist+wheel
+        run: python -m build
+        working-directory: pypi
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: pypi/dist

@@ -1,0 +1,79 @@
+{
+  "name": "fleet-health",
+  "description": "Generic read-only fleet health workflow for a first MeshClaw run. It collects fleet status, service findings, security posture, and a non-destructive autoheal plan.",
+  "steps": [
+    {
+      "id": "fleet-overview",
+      "title": "Collect fleet overview",
+      "node": "controller",
+      "transport": "local",
+      "command": "meshclaw monitor-check --json",
+      "action": "read_state",
+      "resource": "fleet",
+      "timeout_seconds": 20,
+      "retry": {
+        "max_attempts": 2,
+        "retry_on_error_substr": [
+          "timeout",
+          "connection refused"
+        ]
+      },
+      "dry_run_note": "Dry-run only: would collect monitored fleet state."
+    },
+    {
+      "id": "service-audit",
+      "title": "Audit failed or restarting services",
+      "node": "controller",
+      "transport": "local",
+      "command": "meshclaw fleet-service-audit --json",
+      "action": "read_state",
+      "resource": "service",
+      "depends_on": [
+        "fleet-overview"
+      ],
+      "timeout_seconds": 30,
+      "dry_run_note": "Dry-run only: would audit service failures across the fleet."
+    },
+    {
+      "id": "security-snapshot",
+      "title": "Collect read-only security and hygiene snapshot",
+      "node": "controller",
+      "transport": "local",
+      "command": "meshclaw fleet-scan --security=true --hygiene=true --logs=true --json",
+      "action": "read_state",
+      "resource": "security",
+      "depends_on": [
+        "fleet-overview"
+      ],
+      "timeout_seconds": 45,
+      "dry_run_note": "Dry-run only: would collect security, hygiene, and log evidence without mutating hosts."
+    },
+    {
+      "id": "autoheal-plan",
+      "title": "Build non-destructive autoheal plan",
+      "node": "controller",
+      "transport": "local",
+      "command": "meshclaw autoheal-plan --json",
+      "action": "read_state",
+      "resource": "autoheal",
+      "depends_on": [
+        "service-audit",
+        "security-snapshot"
+      ],
+      "timeout_seconds": 30,
+      "dry_run_note": "Dry-run only: would generate safe repair candidates but not apply them."
+    },
+    {
+      "id": "apply-safe-gate",
+      "title": "Gate safe remediation apply",
+      "transport": "policy",
+      "action": "autoheal_apply",
+      "resource": "server",
+      "approval_required": true,
+      "depends_on": [
+        "autoheal-plan"
+      ],
+      "dry_run_note": "Applying even safe remediation requires explicit operator approval."
+    }
+  ]
+}

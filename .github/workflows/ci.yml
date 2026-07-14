@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  push:
+    branches: ["main", "public-ready-*"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Go test public-safe packages
+        run: |
+          go test \
+            ./cmd/argos-ui-runner \
+            ./internal/aichat \
+            ./internal/assistantcatalog \
+            ./internal/assistantprofile \
+            ./internal/capability \
+            ./internal/doctor \
+            ./internal/guard \
+            ./internal/guardcode \
+            ./internal/guardcve \
+            ./internal/guardvault \
+            ./internal/inventory \
+            ./internal/mailadapter \
+            ./internal/mission \
+            ./internal/monitor \
+            ./internal/nodestate \
+            ./internal/policy \
+            ./internal/prometheus \
+            ./internal/publish \
+            ./internal/reconciler \
+            ./internal/runtime \
+            ./internal/runtimeflow \
+            ./internal/workflow \
+            ./internal/workspace \
+            -timeout 5m
+      - name: Go test CLI smoke cases
+        run: |
+          go test ./cmd/meshclaw \
+            -run 'TestMCPMissionWriteToolsRegistered|TestVisibleMCPToolsHidesMissionWritesWhenNotCanonical|TestModelConfigStatusMasksAPIKey|TestInitCreatesConfig' \
+            -timeout 5m
+      - name: Go test assistant smoke cases
+        run: |
+          go test ./internal/messenger \
+            -run 'TestSignalSelfEcho|TestDirectSignalMailReferenceExtractsAccountAndID|TestFallbackAssistantToolIntentExtractsDirectMailThreadAccount|TestAssistantMemoryIntent' \
+            -timeout 5m
+      - name: Build CLI
+        run: go build -o ./bin/meshclaw ./cmd/meshclaw
+      - name: CLI smoke
+        run: ./bin/meshclaw --help >/dev/null

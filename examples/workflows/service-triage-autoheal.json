@@ -1,0 +1,79 @@
+{
+  "name": "service-triage-autoheal",
+  "description": "Service triage workflow for one host. It separates read-only diagnosis, retryable repair planning, fallback log collection, and approval-gated remediation.",
+  "steps": [
+    {
+      "id": "service-check",
+      "title": "Check target service state",
+      "node": "TARGET_HOST",
+      "transport": "vssh",
+      "command": "systemctl --no-pager --failed || true; systemctl --no-pager status TARGET_SERVICE || true",
+      "action": "read_state",
+      "resource": "service",
+      "timeout_seconds": 15,
+      "retry": {
+        "max_attempts": 2,
+        "retry_on_error_substr": [
+          "timeout",
+          "connection refused",
+          "auth failed"
+        ]
+      },
+      "dry_run_note": "Dry-run only: would inspect failed units and the target service through vssh."
+    },
+    {
+      "id": "service-triage",
+      "title": "Classify service failure and next actions",
+      "node": "controller",
+      "transport": "local",
+      "command": "meshclaw service-triage --hosts TARGET_HOST --json",
+      "action": "service_triage",
+      "resource": "service",
+      "depends_on": [
+        "service-check"
+      ],
+      "timeout_seconds": 30,
+      "dry_run_note": "Dry-run only: would classify stale service noise versus real incident."
+    },
+    {
+      "id": "fallback-logs",
+      "title": "Collect fallback logs when service check fails",
+      "node": "TARGET_HOST",
+      "transport": "vssh",
+      "command": "journalctl -n 120 --no-pager -u TARGET_SERVICE || journalctl -n 120 --no-pager",
+      "action": "read_state",
+      "resource": "logs",
+      "fallback_for": [
+        "service-check"
+      ],
+      "timeout_seconds": 20,
+      "dry_run_note": "Dry-run only: would collect logs only when the primary service check fails."
+    },
+    {
+      "id": "repair-plan",
+      "title": "Build host repair plan",
+      "node": "controller",
+      "transport": "local",
+      "command": "meshclaw node-repair-plan --hosts TARGET_HOST --json",
+      "action": "read_state",
+      "resource": "server",
+      "depends_on": [
+        "service-triage"
+      ],
+      "timeout_seconds": 30,
+      "dry_run_note": "Dry-run only: would build a repair plan without applying changes."
+    },
+    {
+      "id": "remediation-gate",
+      "title": "Gate remediation apply",
+      "transport": "policy",
+      "action": "autoheal_apply",
+      "resource": "server",
+      "approval_required": true,
+      "depends_on": [
+        "repair-plan"
+      ],
+      "dry_run_note": "Real service quarantine, restart, removal, or repair must be explicitly approved."
+    }
+  ]
+}

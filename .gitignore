@@ -1,0 +1,15 @@
+/meshclaw
+.cursor/
+.meshclaw-browser-tests/
+.meshclaw-dev-loop/
+.pytest_cache/
+*.log
+*.tmp
+.DS_Store
+dist/
+build/
+bin/
+coverage.out
+__pycache__/
+*.pyc
+*.egg-info/

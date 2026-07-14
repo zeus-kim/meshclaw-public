@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meshclaw-go"
+version = "1.2.54"
+description = "meshclaw — AI-native operations runtime: installs the official Go binary from GitHub Releases"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [{ name = "zeus", email = "zeus@zeus.kim" }]
+keywords = ["meshclaw", "vssh", "operations", "runtime", "mcp"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = []
+
+[project.scripts]
+meshclaw = "meshclaw_go:main"
+
+[project.urls]
+Homepage = "https://github.com/zeus-kim/meshclaw-public"
+Repository = "https://github.com/zeus-kim/meshclaw-public"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["meshclaw_go*"]

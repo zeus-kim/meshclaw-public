@@ -1,0 +1,298 @@
+{
+  "name": "meshclaw-ops-orchestration-demo",
+  "description": "Combined DevOps orchestration demo for AI operators: Codex/Claude plan and reason, MeshClaw supplies inventory, capability placement, policy gates, vssh execution, failure handling, and evidence for an email plus local-model operations workflow.",
+  "steps": [
+    {
+      "id": "operator-request",
+      "title": "Capture the real operator request",
+      "node": "macbook",
+      "transport": "manual",
+      "action": "read_state",
+      "resource": "workflow",
+      "dry_run_note": "The user asks Codex or Claude to verify a real mail server, prepare account/client setup, use worker models, capture evidence, and explain every operational decision."
+    },
+    {
+      "id": "runtime-boundary",
+      "title": "Separate model reasoning from runtime responsibility",
+      "node": "macbook",
+      "transport": "manual",
+      "action": "read_state",
+      "resource": "workflow",
+      "dry_run_note": "Codex/Claude reason and converse. MeshClaw owns state, policy, approvals, structured execution, repeatability, redaction, and evidence."
+    },
+    {
+      "id": "vssh-boundary",
+      "title": "Explain why vssh is not just SSH",
+      "node": "macbook",
+      "transport": "manual",
+      "action": "read_state",
+      "resource": "workflow",
+      "dry_run_note": "SSH gives one shell. vssh gives AI-friendly facts, fleet fan-out, routed execution, structured result fields, retry/failure metadata, and MCP tool schemas."
+    },
+    {
+      "id": "inventory-snapshot",
+      "title": "Snapshot the fleet inventory",
+      "node": "macbook",
+      "transport": "local",
+      "command": "/Users/example/bin/meshclaw nodes list --json",
+      "action": "server_list",
+      "resource": "fleet",
+      "dry_run_note": "Dry-run only: record the current node registry that placement decisions will use."
+    },
+    {
+      "id": "capability-snapshot",
+      "title": "Snapshot capabilities and available model lanes",
+      "node": "macbook",
+      "transport": "local",
+      "command": "/Users/example/bin/meshclaw capabilities --json",
+      "action": "capability_list",
+      "resource": "capability",
+      "dry_run_note": "Dry-run only: record callable capabilities such as vssh-native, Ollama lanes, browser, mail, and provider handles."
+    },
+    {
+      "id": "fleet-health",
+      "title": "Collect current fleet health",
+      "node": "macbook",
+      "transport": "local",
+      "command": "/Users/example/bin/meshclaw monitor-check --json",
+      "action": "fleet_status",
+      "resource": "fleet",
+      "dry_run_note": "Dry-run only: collect fleet state before assigning work or touching infrastructure."
+    },
+    {
+      "id": "placement-plan",
+      "title": "Explain worker placement choices",
+      "node": "macbook",
+      "transport": "local",
+      "command": "/Users/example/bin/meshclaw orchestration-plan \"mail server verification with c1, Ollama workers, macmini client lane, and macbook verifier\" --json",
+      "action": "provision_plan",
+      "resource": "fleet",
+      "dry_run_note": "Dry-run only: show why c1, g1, g2, g3, g4, macmini, and macbook are chosen for different lanes."
+    },
+    {
+      "id": "mox-doc-check",
+      "title": "Check current Mox expectations before mail operations",
+      "node": "macbook",
+      "transport": "browser",
+      "action": "documentation_check",
+      "resource": "mox-docs",
+      "dry_run_note": "Dry-run only: verify current Mox expectations for DNS, TLS, accounts, SMTP/IMAP, and clients before mutating mail configuration.",
+      "artifacts": [
+        "artifacts/docs/mox-doc-check.json",
+        "screenshots/mox-docs-redacted.png"
+      ]
+    },
+    {
+      "id": "cloudflare-doc-check",
+      "title": "Check Cloudflare DNS and token expectations",
+      "node": "macbook",
+      "transport": "browser",
+      "action": "documentation_check",
+      "resource": "cloudflare-docs",
+      "dry_run_note": "Dry-run only: verify current Cloudflare DNS and scoped token expectations before provider access.",
+      "artifacts": [
+        "artifacts/docs/cloudflare-dns-token-doc-check.json",
+        "screenshots/cloudflare-docs-redacted.png"
+      ]
+    },
+    {
+      "id": "cloudflare-token-gate",
+      "title": "Gate Cloudflare token use",
+      "transport": "policy",
+      "action": "provider_token_use",
+      "resource": "credential",
+      "approval_required": true,
+      "dry_run_note": "Dry-run only: provider credentials are use-only handles. Tokens are never shown to the model or written into evidence."
+    },
+    {
+      "id": "cloudflare-dns-gate",
+      "title": "Gate real DNS changes",
+      "transport": "policy",
+      "action": "cloudflare_dns_change",
+      "resource": "dns",
+      "approval_required": true,
+      "dry_run_note": "Dry-run only: MX, SPF, DKIM, DMARC, and related DNS changes require explicit approval and post-change evidence."
+    },
+    {
+      "id": "c1-mail-facts",
+      "title": "Inspect c1 mail server state",
+      "node": "c1",
+      "transport": "vssh",
+      "command": "hostname; command -v mox || true; systemctl is-active mox; ss -ltn | egrep ':(25|465|587|993|443)\\b' || true",
+      "action": "read_state",
+      "resource": "server",
+      "dry_run_note": "Dry-run only: inspect Mox and public mail ports through vssh with structured stdout, stderr, exit_code, and duration."
+    },
+    {
+      "id": "account-create-gate",
+      "title": "Gate mailbox creation",
+      "node": "c1",
+      "transport": "policy",
+      "action": "account_create",
+      "resource": "mail-account",
+      "approval_required": true,
+      "dry_run_note": "Dry-run only: creating or changing a mail account requires approval and redacted evidence."
+    },
+    {
+      "id": "client-config-gate",
+      "title": "Gate macmini and MacBook client configuration",
+      "node": "macmini",
+      "transport": "policy",
+      "action": "account_configure",
+      "resource": "mail-client",
+      "approval_required": true,
+      "dry_run_note": "Dry-run only: client setup uses IMAP/SMTP settings without exposing passwords in chat or evidence.",
+      "artifacts": [
+        "screenshots/macmini-mail-settings-redacted.png",
+        "screenshots/macbook-mail-settings-redacted.png"
+      ]
+    },
+    {
+      "id": "email-send-gate",
+      "title": "Gate real test email send and reply",
+      "node": "macmini",
+      "transport": "policy",
+      "action": "email_send",
+      "resource": "email",
+      "approval_required": true,
+      "dry_run_note": "Dry-run only: sending from macmini and verifying receipt/reply on MacBook require approval.",
+      "artifacts": [
+        "screenshots/macmini-sent-mail-redacted.png",
+        "screenshots/macbook-received-mail-redacted.png",
+        "screenshots/macbook-reply-redacted.png"
+      ]
+    },
+    {
+      "id": "ollama-worker-facts",
+      "title": "Inspect Ollama worker lanes",
+      "node": "macbook",
+      "transport": "local",
+      "command": "/Users/example/bin/vssh facts-many g1,g2,g3,g4 --json",
+      "action": "read_state",
+      "resource": "server",
+      "dry_run_note": "Dry-run only: collect worker facts for model placement and failure-aware routing."
+    },
+    {
+      "id": "g1-planning-worker",
+      "title": "Assign g1 planning worker",
+      "node": "g1",
+      "transport": "vssh",
+      "command": "ollama list; if command -v timeout >/dev/null 2>&1; then timeout 8s ollama run qwen2.5:7b 'Return one JSON object with role=\"planning\", task=\"mail_ops_plan\", and status=\"ready\".' || echo '{\"status\":\"degraded\",\"worker\":\"g1\",\"role\":\"planning\",\"retryable\":true,\"reason\":\"model_timeout_or_unavailable\"}'; else ollama run qwen2.5:7b 'Return one JSON object with role=\"planning\", task=\"mail_ops_plan\", and status=\"ready\".' || echo '{\"status\":\"degraded\",\"worker\":\"g1\",\"role\":\"planning\",\"retryable\":true,\"reason\":\"model_unavailable\"}'; fi",
+      "action": "read_state",
+      "resource": "model",
+      "dry_run_note": "Dry-run only: g1 is selected for planning because it has an Ollama lane suitable for small structured planning prompts."
+    },
+    {
+      "id": "g2-reliability-worker",
+      "title": "Assign g2 reliability reviewer",
+      "node": "macbook",
+      "transport": "local",
+      "command": "printf '%s\\n' '{\"status\":\"degraded\",\"worker\":\"g2\",\"role\":\"reliability_review\",\"retryable\":true,\"reason\":\"vssh_transport_timeout_observed\",\"fallback\":\"use g1 or g3 for this run\"}'",
+      "action": "read_state",
+      "resource": "model",
+      "dry_run_note": "Dry-run only: g2 would review reliability, but the runtime can preserve a transport timeout as structured degraded evidence and route around it."
+    },
+    {
+      "id": "g3-evidence-worker",
+      "title": "Assign g3 evidence schema worker",
+      "node": "g3",
+      "transport": "vssh",
+      "command": "ollama list; if command -v timeout >/dev/null 2>&1; then timeout 8s ollama run llama3.2 'Return one JSON object with role=\"evidence_schema\", task=\"mail_ops_evidence\", and status=\"ready\".' || echo '{\"status\":\"degraded\",\"worker\":\"g3\",\"role\":\"evidence_schema\",\"retryable\":true,\"reason\":\"model_timeout_or_unavailable\"}'; else ollama run llama3.2 'Return one JSON object with role=\"evidence_schema\", task=\"mail_ops_evidence\", and status=\"ready\".' || echo '{\"status\":\"degraded\",\"worker\":\"g3\",\"role\":\"evidence_schema\",\"retryable\":true,\"reason\":\"model_unavailable\"}'; fi",
+      "action": "read_state",
+      "resource": "model",
+      "dry_run_note": "Dry-run only: g3 proposes schema and evidence fields without owning execution authority."
+    },
+    {
+      "id": "g4-automation-and-failure",
+      "title": "Record g4 automation lane and model failure handling",
+      "node": "g4",
+      "transport": "vssh",
+      "command": "command -v n8n || true; ollama list; if command -v timeout >/dev/null 2>&1; then timeout 5s ollama run gemma3:4b 'Return one JSON object with status=\"ready\".' || echo '{\"status\":\"failure_captured\",\"worker\":\"g4\",\"retryable\":true}'; else echo '{\"status\":\"failure_captured\",\"worker\":\"g4\",\"retryable\":true,\"reason\":\"timeout command unavailable\"}'; fi",
+      "action": "read_state",
+      "resource": "model",
+      "dry_run_note": "Dry-run only: g4 can be an automation lane, but model/service failure is recorded as evidence and routed around instead of hidden."
+    },
+    {
+      "id": "service-triage",
+      "title": "Classify service failures before autohealing",
+      "node": "macbook",
+      "transport": "local",
+      "command": "/Users/example/bin/meshclaw service-triage --hosts d1 --json",
+      "action": "service_triage",
+      "resource": "service",
+      "dry_run_note": "Dry-run only: show how MeshClaw turns noisy service logs into class, judgement, next_actions, retryability, and approval mode."
+    },
+    {
+      "id": "autoheal-plan",
+      "title": "Build bounded autoheal plan",
+      "node": "macbook",
+      "transport": "manual",
+      "action": "autoheal_plan",
+      "resource": "server",
+      "dry_run_note": "Run as a targeted diagnostic when needed: meshclaw autoheal-plan --json. It is intentionally separated from the execute demo because it may scan the whole fleet."
+    },
+    {
+      "id": "autoheal-apply-safe-gate",
+      "title": "Prove unattended remediation remains bounded",
+      "node": "macbook",
+      "transport": "policy",
+      "action": "autoheal_apply_safe",
+      "resource": "server",
+      "approval_required": true,
+      "dry_run_note": "Dry-run only: applying even bounded remediation is kept as an explicit demo gate; production policies may allow selected auto_safe actions."
+    },
+    {
+      "id": "data-clean-plan",
+      "title": "Plan disk cleanup without deleting data",
+      "node": "macbook",
+      "transport": "local",
+      "command": "/Users/example/bin/meshclaw data-clean-plan d1 /home",
+      "action": "hygiene_plan",
+      "resource": "server",
+      "dry_run_note": "Dry-run only: identify cleanup candidates and write a manifest; data deletion is a separate approval-required action."
+    },
+    {
+      "id": "data-clean-apply-gate",
+      "title": "Gate cleanup apply",
+      "node": "d1",
+      "transport": "policy",
+      "action": "data_clean_apply",
+      "resource": "server",
+      "approval_required": true,
+      "dry_run_note": "Dry-run only: deleting candidate files requires explicit approval, manifest evidence, and post-cleanup verification."
+    },
+    {
+      "id": "screenshot-evidence",
+      "title": "Capture redacted client/browser screenshots",
+      "node": "macbook",
+      "transport": "browser",
+      "action": "screenshot_capture",
+      "resource": "mail-client",
+      "approval_required": true,
+      "dry_run_note": "Dry-run only: browser and mail-client screenshots become redacted evidence artifacts, not chat-only claims.",
+      "artifacts": [
+        "screenshots/macmini-client-redacted.png",
+        "screenshots/macbook-client-redacted.png",
+        "screenshots/meshclaw-report-redacted.png"
+      ]
+    },
+    {
+      "id": "runtime-report",
+      "title": "Generate human-readable runtime report",
+      "node": "macbook",
+      "transport": "manual",
+      "action": "read_state",
+      "resource": "workflow",
+      "dry_run_note": "MeshClaw writes plan.md, execution.json, steps.jsonl, meshclaw-actions.md, capabilities.json, adapters.json, and report.html so another model can continue from evidence."
+    },
+    {
+      "id": "final-message",
+      "title": "State the product thesis",
+      "node": "macbook",
+      "transport": "manual",
+      "action": "read_state",
+      "resource": "workflow",
+      "dry_run_note": "Models can do one-off orchestration manually. MeshClaw makes the operation repeatable, policy-aware, failure-aware, auditable, and safe enough to hand to multiple AI frontends."
+    }
+  ]
+}
