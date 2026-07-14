@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "meshclaw"
+version = "1.2.47"
+description = "AI-native operations runtime for vssh-backed infrastructure"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "MeshPop" }]
+keywords = ["meshclaw", "server-ops", "mcp", "vssh", "ai-agents"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: System :: Systems Administration",
+]
+
+[project.urls]
+Homepage = "https://github.com/meshclaw/meshclaw"
+Repository = "https://github.com/meshclaw/meshclaw"
+
+[project.scripts]
+meshclaw = "meshclaw.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/meshclaw"]

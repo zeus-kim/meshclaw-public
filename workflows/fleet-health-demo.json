@@ -1,0 +1,55 @@
+{
+  "name": "fleet-health-demo",
+  "description": "Generic fleet health workflow for AI operators: inspect nodes, services, disk, and security posture through MeshClaw Runtime without any email-specific assumptions.",
+  "steps": [
+    {
+      "id": "fleet-overview",
+      "title": "Collect fleet overview",
+      "node": "macbook",
+      "transport": "local",
+      "command": "meshclaw monitor-check --json",
+      "action": "read_state",
+      "resource": "fleet",
+      "dry_run_note": "Dry-run only: would collect monitored fleet state."
+    },
+    {
+      "id": "service-audit",
+      "title": "Audit failed or restarting services",
+      "node": "macbook",
+      "transport": "local",
+      "command": "meshclaw fleet-service-audit --json",
+      "action": "read_state",
+      "resource": "service",
+      "dry_run_note": "Dry-run only: would audit service failures across the fleet."
+    },
+    {
+      "id": "security-snapshot",
+      "title": "Run read-only security snapshot",
+      "node": "macbook",
+      "transport": "local",
+      "command": "meshclaw fleet-scan --security=true --hygiene=true --logs=true --json",
+      "action": "read_state",
+      "resource": "security",
+      "dry_run_note": "Dry-run only: would collect read-only security, hygiene, and log evidence."
+    },
+    {
+      "id": "autoheal-plan",
+      "title": "Build autoheal plan",
+      "node": "macbook",
+      "transport": "local",
+      "command": "meshclaw autoheal-plan --json",
+      "action": "read_state",
+      "resource": "autoheal",
+      "dry_run_note": "Dry-run only: would generate non-destructive autoheal candidates."
+    },
+    {
+      "id": "apply-safe-gate",
+      "title": "Gate safe autoheal application",
+      "transport": "policy",
+      "action": "autoheal_apply",
+      "resource": "server",
+      "approval_required": true,
+      "dry_run_note": "Dry-run only: applying even safe repairs requires explicit operator approval in this demo."
+    }
+  ]
+}
